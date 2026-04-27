@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>個人インテント機能 | Sales Marker</title>
+<meta name="description" content="BtoBハウスリスト上で興味関心の行動シグナルが取得できた個人を可視化する新機能「個人インテント」。企業単位のインテントから個人単位へ、誰が検討しているかをリアルタイムに特定し、ダイレクトアプローチを実現します。">
+<style>
+  /* ============================================================
+     Brand: Sales Marker（公式トークン準拠 v2）
+     - color.text.primary  : #00235d  (Navy)
+     - color.text.inverse  : #3052c4  (Marker Blue)
+     - color.text.secondary: #383838
+     - font.family.primary : Montserrat
+     - font.stack          : Montserrat, Noto Sans JP, sans-serif
+     - font.size.base      : 13px
+     - radius.xs           : 16px
+     - 構造参考: https://sales-marker.jp/function/domain-intent/
+  ============================================================ */
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+
+  :root {
+    /* ===== Official Sales Marker tokens (extracted from production tailwind.css) ===== */
+    --color-brandSm: #0766f4;       /* Marker Blue (主アクション・アクセント) */
+    --color-navy: #003386;          /* Navy (見出し・主構造) */
+    --color-darkNavy: #00235d;      /* Dark Navy (Hero背景・Footer・最深部) */
+    --color-lightNavy: #0046af;     /* Light Navy (リンク・補助) */
+    --color-textBlack: #383838;     /* 本文テキスト */
+    --color-gray: #565656;          /* 補足テキスト */
+    --color-lightGray: #9d9d9d;     /* 控えめテキスト */
+    --color-borderGray: #c6c6c6;    /* ボーダー */
+    --color-bgGray: #f6f6f6;        /* セクション背景 */
+    --color-bgDark: #000822;        /* 最深背景 */
+    --color-yellow: #fff000;        /* アクセント */
+
+    /* aliases (used throughout the LP) */
+    --navy: var(--color-navy);
+    --navy-deep: var(--color-darkNavy);
+    --blue: var(--color-brandSm);
+    --blue-light: var(--color-lightNavy);
+    --blue-soft: #e8edf8;
+    --text-primary: var(--color-navy);
+    --text-secondary: var(--color-textBlack);
+    --text-gray: var(--color-gray);
+    --surface-base: #ffffff;
+    --surface-muted: var(--color-bgGray);
+    --border: var(--color-borderGray);
+
+    /* spacing tokens */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 40px;
+
+    /* radius */
+    --radius-xs: 16px;
+    --radius-sm: 8px;
+
+    /* font */
+    --font-stack: "Montserrat", "Noto Sans JP", -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font-stack);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    background: var(--surface-base);
+  }
+
+  a { color: inherit; text-decoration: none; transition: color .15s; }
+  a:hover { color: var(--blue); }
+  img { max-width: 100%; height: auto; display: block; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+  /* ===== Header (公式同等：10項目ナビ + 右上 dual CTA) ===== */
+  .site-header {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--surface-base);
+    border-bottom: 1px solid var(--border);
+  }
+  .header-top {
+    display: flex; justify-content: flex-end; align-items: center;
+    height: 30px; padding: 0 24px;
+    background: var(--surface-muted);
+    font-size: 11px;
+    gap: 20px;
+    color: var(--text-gray);
+  }
+  .header-top a { color: var(--text-gray); }
+  .header-main {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 16px; font-weight: 700; color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+  .logo .check {
+    width: 22px; height: 22px;
+    background: var(--blue);
+    border-radius: 50%;
+    color: var(--surface-base);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .nav {
+    display: flex; gap: 22px; font-size: 13px;
+    font-weight: 500; color: var(--text-primary);
+  }
+  .nav a { display: inline-flex; align-items: center; gap: 4px; }
+  .nav a::after {
+    content: "▾"; font-size: 9px; color: var(--text-gray);
+  }
+  .nav a.no-caret::after { content: ""; }
+  .header-ctas { display: flex; gap: 8px; align-items: center; }
+  .btn-header {
+    padding: 9px 16px; border-radius: 4px;
+    font-size: 12px; font-weight: 600;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn-header.outline {
+    background: var(--surface-base);
+    color: var(--text-primary);
+    border: 1px solid var(--text-primary);
+  }
+  .btn-header.outline:hover { background: var(--surface-muted); }
+  .btn-header.solid {
+    background: var(--blue);
+    color: var(--surface-base);
+    border: 1px solid var(--blue);
+  }
+  .btn-header.solid:hover { background: var(--navy); border-color: var(--navy); }
+
+  /* ===== Hero (公式の incPageHeader 準拠: navy → darkNavy グラデ + FUNCTION watermark) ===== */
+  .hero {
+    background: linear-gradient(90deg, var(--color-navy) 0%, var(--color-darkNavy) 100%);
+    color: var(--surface-base);
+    padding: 80px 0 96px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-watermark {
+    position: absolute;
+    right: 0; bottom: -16px;
+    font-family: "Montserrat", sans-serif;
+    font-size: 110px; font-weight: 700;
+    letter-spacing: -0.02em;
+    color: rgba(9, 48, 139, 0.50); /* 公式: text-[rgba(9,_48,_139,_0.50)] */
+    line-height: 1;
+    text-align: right;
+    pointer-events: none;
+    user-select: none;
+  }
+  .hero-inner {
+    position: relative; z-index: 2;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .hero h1 {
+    font-size: 32px; font-weight: 700;
+    letter-spacing: -0.005em; margin-bottom: 28px;
+    line-height: 1.4;
+  }
+  .hero .btn-hero {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface-base);
+    color: var(--text-primary);
+    padding: 14px 28px;
+    border-radius: 4px;
+    font-size: 14px; font-weight: 600;
+    transition: all .15s;
+  }
+  .hero .btn-hero:hover { background: var(--blue-soft); transform: translateY(-1px); }
+  .hero .btn-hero::after { content: "→"; font-size: 16px; }
+
+  /* ===== Breadcrumb ===== */
+  .breadcrumb {
+    background: var(--surface-base);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    font-size: 12px;
+    color: var(--text-gray);
+  }
+  .breadcrumb .container { padding: 0; }
+  .breadcrumb a:hover { color: var(--blue); }
+  .breadcrumb .sep { margin: 0 8px; color: var(--border); }
+  .breadcrumb .current { color: var(--text-primary); font-weight: 500; }
+
+  /* ===== Section base ===== */
+  section.block { padding: 80px 0; }
+  section.block.alt { background: var(--surface-muted); }
+  .section-eyebrow {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.16em;
+    color: var(--blue); text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-size: 30px; font-weight: 700; line-height: 1.5;
+    color: var(--text-primary); margin-bottom: 16px; letter-spacing: -0.005em;
+  }
+  .section-lead {
+    font-size: 14px; color: var(--text-secondary); line-height: 1.85;
+    max-width: 760px;
+  }
+
+  /* ===== About (公式準拠: 左テキスト + 右3カード型ビジュアル) ===== */
+  .about-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 56px;
+    align-items: center; margin-top: 32px;
+  }
+  .about-card-area {
+    background: linear-gradient(135deg, var(--blue-soft), var(--surface-base));
+    border-radius: var(--radius-xs);
+    padding: 32px;
+    position: relative;
+  }
+  .source-cards {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin-bottom: 24px;
+  }
+  .source-card {
+    background: var(--surface-base);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 12px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,35,93,0.04);
+  }
+  .source-card .icon {
+    width: 36px; height: 36px;
+    background: var(--blue-soft);
+    border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 8px;
+    font-size: 18px;
+  }
+  .source-card .label {
+    font-size: 11px; font-weight: 600; color: var(--text-primary);
+    line-height: 1.4;
+  }
+  .intent-flow {
+    background: var(--text-primary);
+    color: var(--surface-base);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+  .intent-flow .arrow { color: var(--blue-light); margin: 0 6px; }
+  .phase-pill {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+    margin-bottom: 14px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ===== Function 5 points ===== */
+  .point {
+    display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 56px;
+    align-items: center;
+    padding: 56px 0;
+    border-top: 1px solid var(--border);
+  }
+  .point.reverse { grid-template-columns: 1.1fr 0.9fr; }
+  .point.reverse .point-text { order: 2; }
+  .point.reverse .point-visual { order: 1; }
+  .point-num {
+    font-family: "Montserrat", sans-serif;
+    font-size: 56px; font-weight: 700; color: var(--blue);
+    line-height: 1; margin-bottom: 12px; letter-spacing: -0.04em;
+  }
+  .point-title {
+    font-size: 22px; font-weight: 700; color: var(--text-primary);
+    margin-bottom: 16px; line-height: 1.5;
+  }
+  .point-title .strong { color: var(--blue); }
+  .point-body { font-size: 13px; color: var(--text-secondary); line-height: 1.85; }
+  .point-visual {
+    background: linear-gradient(135deg, var(--blue-soft), var(--surface-base));
+    border-radius: var(--radius-xs);
+    padding: 32px;
+    border: 1px solid var(--border);
+    min-height: 200px;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+  }
+  .point-visual .icon-box {
+    background: var(--surface-base);
+    border: 1px solid var(--blue);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(48,82,196,0.08);
+    width: 100%;
+  }
+  .point-visual .ic-title {
+    font-size: 11px; font-weight: 600; color: var(--blue);
+    letter-spacing: 0.08em; margin-bottom: 10px;
+  }
+  .point-visual .ic-body {
+    font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.6;
+  }
+  .point-visual .ic-foot {
+    font-size: 11px; color: var(--text-gray); margin-top: 12px; line-height: 1.7;
+  }
+
+  /* ===== Privacy callout ===== */
+  .privacy-callout {
+    background: var(--surface-base);
+    border: 2px solid var(--blue);
+    border-radius: var(--radius-xs);
+    padding: 28px;
+    margin-top: 48px;
+    display: grid; grid-template-columns: auto 1fr; gap: 20px;
+    align-items: center;
+  }
+  .privacy-icon {
+    width: 48px; height: 48px;
+    background: var(--blue);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--surface-base); font-size: 22px;
+  }
+  .privacy-content h3 { font-size: 15px; color: var(--text-primary); margin-bottom: 6px; font-weight: 700; }
+  .privacy-content p { font-size: 12px; color: var(--text-secondary); line-height: 1.75; }
+  .privacy-content a { color: var(--blue); font-weight: 600; }
+
+  /* ===== Roadmap ===== */
+  .roadmap {
+    background: linear-gradient(135deg, var(--navy), var(--navy-deep));
+    color: var(--surface-base);
+    border-radius: var(--radius-xs);
+    padding: 40px;
+    margin-top: 32px;
+  }
+  .roadmap h3 { font-size: 18px; font-weight: 700; margin-bottom: 24px; }
+  .roadmap-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .rl-item {
+    background: rgba(255,255,255,0.06);
+    border-radius: 8px; padding: 18px;
+    border-left: 3px solid var(--blue-light);
+  }
+  .rl-item .phase {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.7); margin-bottom: 6px;
+  }
+  .rl-item .title { font-size: 13px; font-weight: 600; line-height: 1.55; }
+
+  /* ===== Others ===== */
+  .others-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px; margin-top: 32px;
+  }
+  .other-card {
+    background: var(--surface-base);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: all .15s;
+    cursor: pointer;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .other-card:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(7,102,244,0.08); }
+  .other-card .oc-icon {
+    width: 40px; height: 40px;
+    flex-shrink: 0;
+    background: var(--surface-muted);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .other-card .oc-icon img { width: 28px; height: 28px; object-fit: contain; }
+  .other-card .oc-text { flex: 1; min-width: 0; }
+  .other-card .oc-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+  .other-card .oc-sub { font-size: 11px; color: var(--text-gray); line-height: 1.6; }
+
+  /* ===== Final CTA ===== */
+  .cta-block {
+    background: linear-gradient(135deg, var(--blue), var(--navy));
+    color: var(--surface-base);
+    border-radius: var(--radius-xs);
+    padding: 56px 40px;
+    text-align: center;
+    margin-top: 48px;
+  }
+  .cta-block h2 { font-size: 24px; font-weight: 700; line-height: 1.5; margin-bottom: 12px; }
+  .cta-block p { font-size: 13px; color: rgba(255,255,255,0.9); margin-bottom: 28px; }
+  .cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-size: 13px; font-weight: 600;
+    transition: all .15s;
+    cursor: pointer; border: 1px solid transparent;
+  }
+  .btn-primary {
+    background: var(--surface-base); color: var(--blue);
+  }
+  .btn-primary:hover { background: var(--blue-soft); transform: translateY(-1px); }
+  .btn-primary::after { content: "→"; }
+  .btn-secondary {
+    background: transparent; color: var(--surface-base);
+    border-color: rgba(255,255,255,0.6);
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+
+  /* ===== Footer ===== */
+  footer {
+    background: var(--navy-deep);
+    color: rgba(255,255,255,0.85);
+    padding: 56px 0 24px;
+  }
+  .footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 32px; }
+  .footer-grid h4 {
+    font-size: 12px; font-weight: 700; color: var(--surface-base);
+    margin-bottom: 14px; letter-spacing: 0.04em;
+  }
+  .footer-grid ul { list-style: none; }
+  .footer-grid ul li { margin-bottom: 6px; font-size: 12px; }
+  .footer-grid ul li a { color: rgba(255,255,255,0.7); }
+  .footer-grid ul li a:hover { color: var(--surface-base); }
+  .footer-bottom {
+    margin-top: 40px; padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    display: flex; justify-content: space-between; flex-wrap: wrap;
+    font-size: 11px; color: rgba(255,255,255,0.5);
+  }
+
+  /* ===== Focus visible (WCAG) ===== */
+  a:focus-visible, button:focus-visible, .btn:focus-visible, .btn-hero:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 1024px) {
+    .nav { display: none; }
+    .header-top { display: none; }
+    .hero h1 { font-size: 28px; }
+    .hero-watermark { font-size: 70px; right: -20px; }
+  }
+  @media (max-width: 768px) {
+    .point, .point.reverse { grid-template-columns: 1fr; gap: 32px; }
+    .point.reverse .point-text { order: 1; }
+    .point.reverse .point-visual { order: 2; }
+    .about-grid { grid-template-columns: 1fr; }
+    .roadmap-list { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr 1fr; }
+    .privacy-callout { grid-template-columns: 1fr; text-align: center; }
+    .privacy-icon { margin: 0 auto; }
+    section.block { padding: 56px 0; }
+    .hero { padding: 48px 0 56px; }
+    .hero h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============== Header ============== -->
+<header class="site-header">
+  <div class="header-top">
+    <a href="#">進化したSales Marker</a>
+    <a href="#">インテントセールスとは</a>
+    <a href="#">Recruit Marker</a>
+    <a href="#">Marketing Marker</a>
+  </div>
+  <div class="header-main">
+    <a href="/" class="logo"><span class="check">✓</span>Sales Marker</a>
+    <nav class="nav" aria-label="メインナビゲーション">
+      <a href="#" class="no-caret">選ばれる理由</a>
+      <a href="#">機能</a>
+      <a href="#">プラン</a>
+      <a href="#">事例</a>
+      <a href="#">お役立ち情報</a>
+      <a href="#">資料一覧</a>
+    </nav>
+    <div class="header-ctas">
+      <a href="#cta" class="btn-header outline">サービス紹介資料</a>
+      <a href="#cta" class="btn-header solid">無料デモ申込</a>
+    </div>
+  </div>
+</header>
+
+<!-- ============== Hero (公式準拠: シンプル + FUNCTION watermark) ============== -->
+<section class="hero">
+  <div class="hero-watermark">FUNCTION</div>
+  <div class="container hero-inner">
+    <h1>個人インテント機能</h1>
+    <a href="#cta" class="btn-hero">機能・特徴まとめ資料</a>
+  </div>
+</section>
+
+<!-- ============== Breadcrumb ============== -->
+<nav class="breadcrumb" aria-label="パンくずリスト">
+  <div class="container">
+    <a href="/">ホーム</a>
+    <span class="sep">›</span>
+    <a href="/function">特徴・機能</a>
+    <span class="sep">›</span>
+    <span class="current">個人インテント機能</span>
+  </div>
+</nav>
+
+<!-- ============== About ============== -->
+<section class="block" id="about">
+  <div class="container">
+    <div class="section-eyebrow">About</div>
+    <h2 class="section-title">顧客の検討は、個人の行動にこそ表れる。<br>誰が興味を持っているかが見えれば、提案はもっと刺さる。</h2>
+    <p class="section-lead">
+      個人インテントは、BtoBハウスリスト上で<strong>興味関心の行動シグナルが取得できた個人</strong>を可視化する新しいインテントレイヤー。<br>
+      「市場 → 企業 → 個人」へとインテントデータの解像度を引き上げ、ダイレクトアプローチを実現します。
+    </p>
+
+    <div class="about-grid">
+      <div>
+        <div class="phase-pill">PHASE 1 リリース｜2026.05</div>
+        <h3 style="font-size: 18px; color: var(--text-primary); margin-bottom: 14px; font-weight: 700; line-height: 1.5;">「誰が・何を・いつ見ているか」を、個人単位で。</h3>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.85;">
+          これまで「どの企業がアクセスしているか」という企業単位の把握にとどまっていたインテントデータが、個人単位の行動把握へと進化。意思決定者・関与者ごとの行動差分を捉え、ダイレクトアプローチを実現します。
+        </p>
+        <p style="font-size: 12px; color: var(--text-gray); margin-top: 16px; line-height: 1.7;">
+          <strong style="color: var(--blue);">Phase 1</strong>: Intent広告経由の閲覧シグナルを起点。今後は他ドメイン閲覧／より詳細な興味関心シグナルへ段階的に拡充。
+        </p>
+      </div>
+      <div class="about-card-area">
+        <div class="source-cards">
+          <div class="source-card">
+            <div class="icon"><img src="assets/lp-personal-intent/icons/icon-user.png" alt="" loading="lazy" style="width:24px;height:24px;object-fit:contain;"></div>
+            <div class="label">自社<br>ホームページ</div>
+          </div>
+          <div class="source-card">
+            <div class="icon"><img src="assets/lp-personal-intent/icons/icon-intent-ads.png" alt="" loading="lazy" style="width:24px;height:24px;object-fit:contain;"></div>
+            <div class="label">提携広告<br>ネットワーク</div>
+          </div>
+          <div class="source-card">
+            <div class="icon"><img src="assets/lp-personal-intent/icons/icon-sales-signal.png" alt="" loading="lazy" style="width:24px;height:24px;object-fit:contain;"></div>
+            <div class="label">行動<br>シグナル</div>
+          </div>
+        </div>
+        <div class="intent-flow">
+          市場 <span class="arrow">→</span> 企業 <span class="arrow">→</span> 個人 ★
+        </div>
+        <p style="font-size: 11px; color: var(--text-gray); margin-top: 12px; text-align: center; line-height: 1.7;">
+          Cookieベース／オプトイン同意を前提とした設計
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Function 5 points ============== -->
+<section class="block alt" id="points">
+  <div class="container">
+    <div class="section-eyebrow">Function</div>
+    <h2 class="section-title">個人インテントが拓く、5つの価値</h2>
+    <p class="section-lead">
+      興味関心の取れた個人を起点に、商談前の準備から、Revenue OS への進化まで。シグナルの精度が高まることで、営業はより適切に意思決定できるようになります。
+    </p>
+
+    <!-- 01 -->
+    <div class="point">
+      <div class="point-text">
+        <div class="point-num">01</div>
+        <h3 class="point-title">興味関心が取れた個人を特定 — <span class="strong">会話のきっかけが定まる</span></h3>
+        <p class="point-body">「企業の中の誰が、何に関心を示しているか」が見えることで、商談前の準備や会話の起点が明確に。担当者の経験や推測に委ねていた「誰へのアプローチか」の判断を、行動シグナルで支援します。</p>
+      </div>
+      <div class="point-visual">
+        <div class="icon-box">
+          <div class="ic-title">PERSON SIGNAL</div>
+          <div class="ic-body">「誰が・何を・いつ」を<br>個人単位で可視化</div>
+          <div class="ic-foot">自社Webページ訪問履歴・提携広告ネットワーク上の閲覧傾向・興味関心スコアリング</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 -->
+    <div class="point reverse">
+      <div class="point-text">
+        <div class="point-num">02</div>
+        <h3 class="point-title">個人レベルの検討タイミング検知 — <span class="strong">動くべき瞬間を逃さない</span></h3>
+        <p class="point-body">興味関心の高まった瞬間を個人単位で捉えるため、最適なタイミングでアプローチが可能に。意思決定者・関与者ごとの行動差分を把握することで、誰にいつ働きかけるかの判断精度を高めます。</p>
+      </div>
+      <div class="point-visual">
+        <div class="icon-box">
+          <div class="ic-title">REAL-TIME</div>
+          <div class="ic-body">関与者ごとの<br>行動差分を把握</div>
+          <div class="ic-foot">同一企業内でも役職・部署で異なる検討の温度感を、個人粒度で識別</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 -->
+    <div class="point">
+      <div class="point-text">
+        <div class="point-num">03</div>
+        <h3 class="point-title">4つのインテントレイヤー統合 — <span class="strong">企業と個人が一本につながる</span></h3>
+        <p class="point-body">検索インテント・ドメインインテント・ビジターインテント・個人インテント。市場の兆しから企業の検討フェーズ、そして個人の購買意欲まで一貫して捉える顧客理解基盤を構築します。</p>
+      </div>
+      <div class="point-visual">
+        <div class="icon-box">
+          <div class="ic-title">4 LAYERS</div>
+          <div class="ic-body">検索 × ドメイン<br>× ビジター × 個人</div>
+          <div class="ic-foot">複数シグナルの掛け合わせで、偽陽性シグナルに左右されにくい判断を支援</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 04 -->
+    <div class="point reverse">
+      <div class="point-text">
+        <div class="point-num">04</div>
+        <h3 class="point-title">プライバシー保護を前提とした設計 — <span class="strong">Cookieベース／同意ベース</span></h3>
+        <p class="point-body">個人インテントはCookieベースのトラッキングを採用し、ユーザー同意（オプトイン）のもとで動作します。個人特定の精度と、プライバシー保護を前提とした設計を両立しています。</p>
+      </div>
+      <div class="point-visual">
+        <div class="icon-box">
+          <div class="ic-title">CLEAN DATA POLICY</div>
+          <div class="ic-body">同意を得た範囲のみで<br>データを活用</div>
+          <div class="ic-foot">プライバシー保護を前提に、ユーザーの同意（オプトイン）に基づいた設計</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 -->
+    <div class="point">
+      <div class="point-text">
+        <div class="point-num">05</div>
+        <h3 class="point-title">Revenue OS への統合 — <span class="strong">マーケから商談クロージングまで一貫</span></h3>
+        <p class="point-body">個人インテントを起点に、商談獲得前のマーケティングから、商談化・受注獲得までの一連の流れを支援する営業基盤「Revenue OS」へ。営業体験そのものを、よりワクワクするものへと変えていきます。</p>
+      </div>
+      <div class="point-visual">
+        <div class="icon-box">
+          <div class="ic-title">REVENUE OS</div>
+          <div class="ic-body">営業体験を、<br>よりワクワクするものへ</div>
+          <div class="ic-foot">マーケティング → 商談化 → 受注獲得 の全流れを支援する営業基盤への進化</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Privacy callout -->
+    <div class="privacy-callout">
+      <div class="privacy-icon" aria-hidden="true">🔒</div>
+      <div class="privacy-content">
+        <h3>プライバシー保護・データ取扱いについて</h3>
+        <p>個人インテントはCookieベースのトラッキングを採用しており、ユーザー同意（オプトイン）のもとで動作します。ユーザーの同意を得た範囲のみでデータを活用します。<br>
+          詳細は <a href="https://sales-marker.jp/clean_data_policy/">Clean Data Policy</a> をご覧ください。
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Roadmap ============== -->
+<section class="block" id="roadmap">
+  <div class="container">
+    <div class="section-eyebrow">Roadmap</div>
+    <h2 class="section-title">Phase 1 から始まる、段階的な進化</h2>
+    <p class="section-lead">
+      本機能はPhase 1のリリースとして、まずIntent広告経由の閲覧シグナルを起点とした個人レベルの行動可視化から提供を開始します。
+    </p>
+
+    <div class="roadmap">
+      <h3>データソースの拡充ロードマップ</h3>
+      <div class="roadmap-list">
+        <div class="rl-item">
+          <div class="phase">PHASE 1 ｜ 2026.05</div>
+          <div class="title">Intent広告経由の閲覧シグナル<br>（自社HP・提携広告ネットワーク）</div>
+        </div>
+        <div class="rl-item">
+          <div class="phase">PHASE 2 ｜ 拡充予定</div>
+          <div class="title">他ドメイン閲覧データへの拡張</div>
+        </div>
+        <div class="rl-item">
+          <div class="phase">PHASE 3 ｜ さらなる進化</div>
+          <div class="title">個人の興味関心がより詳細に把握できるシグナル<br>（検討構造の精緻な可視化）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Others ============== -->
+<section class="block alt" id="others">
+  <div class="container">
+    <div class="section-eyebrow">Others</div>
+    <h2 class="section-title">関連機能</h2>
+    <p class="section-lead">
+      個人インテントは、Sales Markerの他のインテントレイヤーやAIエージェント機能と組み合わせて活用することで、最大限の価値を発揮します。
+    </p>
+
+    <div class="others-grid">
+      <div class="other-card">
+        <div class="oc-icon"><img src="assets/lp-personal-intent/icons/icon-sales-signal.png" alt="" loading="lazy"></div>
+        <div class="oc-text">
+          <div class="oc-title">検索インテント</div>
+          <div class="oc-sub">市場の兆しを検索キーワードから捉える</div>
+        </div>
+      </div>
+      <div class="other-card">
+        <div class="oc-icon"><img src="assets/lp-personal-intent/icons/icon-intent-data.png" alt="" loading="lazy"></div>
+        <div class="oc-text">
+          <div class="oc-title">ドメインインテント</div>
+          <div class="oc-sub">外部ドメイン上の検討の動きを捉える</div>
+        </div>
+      </div>
+      <div class="other-card">
+        <div class="oc-icon"><img src="assets/lp-personal-intent/icons/icon-user.png" alt="" loading="lazy"></div>
+        <div class="oc-text">
+          <div class="oc-title">ビジターインテント</div>
+          <div class="oc-sub">自社サイトの訪問・閲覧データを捉える</div>
+        </div>
+      </div>
+      <div class="other-card">
+        <div class="oc-icon"><img src="assets/lp-personal-intent/icons/icon-multichannel.png" alt="" loading="lazy"></div>
+        <div class="oc-text">
+          <div class="oc-title">マルチAIエージェント</div>
+          <div class="oc-sub">インテントを起点に意思決定からアプローチまで自動化</div>
+        </div>
+      </div>
+      <div class="other-card">
+        <div class="oc-icon"><img src="assets/lp-personal-intent/icons/icon-sequence.png" alt="" loading="lazy"></div>
+        <div class="oc-text">
+          <div class="oc-title">Sequence</div>
+          <div class="oc-sub">マルチチャネルアプローチの自動化</div>
+        </div>
+      </div>
+      <div class="other-card">
+        <div class="oc-icon"><img src="assets/lp-personal-intent/icons/icon-record.png" alt="" loading="lazy"></div>
+        <div class="oc-text">
+          <div class="oc-title">Sales Marker Bolt</div>
+          <div class="oc-sub">商談録画 → AI分析 → CRM自動入力</div>
+        </div>
+      </div>
+      <div class="other-card">
+        <div class="oc-icon"><img src="assets/lp-personal-intent/icons/icon-database.png" alt="" loading="lazy"></div>
+        <div class="oc-text">
+          <div class="oc-title">ハウスリスト管理</div>
+          <div class="oc-sub">既存顧客・見込み顧客のデータベース統合</div>
+        </div>
+      </div>
+      <div class="other-card">
+        <div class="oc-icon"><img src="assets/lp-personal-intent/icons/icon-analytics.png" alt="" loading="lazy"></div>
+        <div class="oc-text">
+          <div class="oc-title">Revenue OS</div>
+          <div class="oc-sub">マーケから商談クロージングまでの統合営業基盤</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Final CTA ============== -->
+<section class="block" id="cta">
+  <div class="container">
+    <div class="cta-block">
+      <h2>「誰が動いているか」が見える営業を、<br>今すぐ体験してみませんか。</h2>
+      <p>個人インテントを含むSales Markerの全機能を、無料デモでご確認いただけます。</p>
+      <div class="cta-actions">
+        <a href="#" class="btn btn-primary">無料デモを申し込む</a>
+        <a href="#" class="btn btn-secondary">資料をダウンロードする</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Footer ============== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="logo" style="color: var(--surface-base); margin-bottom: 14px;"><span class="check">✓</span>Sales Marker</div>
+        <p style="font-size: 12px; line-height: 1.8; color: rgba(255,255,255,0.65);">
+          顧客のインテントを起点に、営業・マーケティングの意思決定からアプローチ実行までを最適化するマルチAIエージェント。
+        </p>
+      </div>
+      <div>
+        <h4>インテントセールス</h4>
+        <ul>
+          <li><a href="#">インテントセールスとは</a></li>
+          <li><a href="#">インテントデータについて</a></li>
+          <li><a href="#">活用事例</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Sales Marker</h4>
+        <ul>
+          <li><a href="#">機能一覧</a></li>
+          <li><a href="#">料金プラン</a></li>
+          <li><a href="#">サポート</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">企業情報</a></li>
+          <li><a href="#">お問い合わせ</a></li>
+          <li><a href="https://sales-marker.jp/clean_data_policy/">Clean Data Policy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Sales Marker Co., Ltd.</span>
+      <span>個人インテント Phase 1 — 2026.05 リリース</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
